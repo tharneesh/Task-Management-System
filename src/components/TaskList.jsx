@@ -11,13 +11,6 @@ const TaskList = ({
   onDeleteTask 
 }) => {
 
-  // TODO: Implement task list functionality
-  // Requirements:
-  // 1. Display tasks in a grid or list layout
-  // 2. Show loading state
-  // 3. Handle empty state
-  // 4. Implement sorting options
-
   if (loading) {
     return (
       <div className="task-list-loading">

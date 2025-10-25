@@ -1,17 +1,6 @@
-// Individual Task Card Component
-// TODO: Implement task card display
-
 import React from 'react';
 
 const TaskCard = ({ task, onEdit, onDelete }) => {
-  
-  // TODO: Implement task card functionality
-  // Requirements:
-  // 1. Display task information in a card layout
-  // 2. Show different styles based on priority/status
-  // 3. Handle optimistic updates (show loading/pending states)
-  // 4. Show task-type specific information
-  // 5. Action buttons (edit, delete)
 
   const getPriorityColor = (priority) => {
     const colors = {
@@ -33,11 +22,19 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
     return colors[status] || '#6b7280';
   };
 
-  // TODO: Check if this is an optimistic update
+  // Check if this is an optimistic update
+  const isOptimistic = React.useMemo(() => {
+    return task.id && task.id.startsWith('temp_');
+  }, [task.id]);
 
   return (
     <div className={`task-card ${task.taskType?.toLowerCase()}`}>
-      {/* TODO: Show optimistic update indicator */}
+      {/* Show optimistic update indicator */}
+      {isOptimistic && (
+        <div className="optimistic-indicator">
+          Saving...
+        </div>
+      )}
 
       <div className="task-card-header">
         <div className="task-meta">

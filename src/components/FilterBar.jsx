@@ -1,6 +1,3 @@
-// Filter Bar Component
-// TODO: Implement advanced filtering controls
-
 import React from 'react';
 import { TASK_TYPES, PRIORITIES, STATUSES } from '../api/mockApi';
 
@@ -11,19 +8,16 @@ const FilterBar = ({
   onFiltersChange 
 }) => {
 
-  // TODO: Implement filter functionality
-  // Requirements:
-  // 1. Project filter dropdown
-  // 2. Assignee filter dropdown  
-  // 3. Status filter dropdown
-  // 4. Task type filter dropdown
-  // 5. Search input with debouncing
-  // 6. Clear all filters button
-  // 7. Show active filter count
-
   const [searchInput, setSearchInput] = React.useState(filters.search || '');
 
-  // TODO: Implement debounced search with useEffect and setTimeout
+  // Debounced search implementation
+  React.useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      handleFilterChange('search', searchInput);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchInput]);
 
   const handleFilterChange = (filterKey, value) => {
     onFiltersChange({
@@ -43,7 +37,18 @@ const FilterBar = ({
     });
   };
 
-  // TODO: Count active filters for display
+  // Count active filters for display
+  const activeFilterCount = React.useMemo(() => {
+    let count = 0;
+    if (filters.projectId) count++;
+    if (filters.assigneeId) count++;
+    if (filters.status && filters.status !== 'all') count++;
+    if (filters.taskType && filters.taskType !== 'all') count++;
+    if (filters.search) count++;
+    return count;
+  }, [filters]);
+
+  const hasActiveFilters = activeFilterCount > 0;
 
   return (
     <div className="filter-bar">
@@ -128,10 +133,9 @@ const FilterBar = ({
           <button 
             onClick={clearAllFilters}
             className="clear-filters-btn"
-            // TODO: Disable when no active filters
+            disabled={!hasActiveFilters}
           >
-            Clear Filters
-            {/* TODO: Show count of active filters */}
+            Clear Filters {hasActiveFilters && `(${activeFilterCount})`}
           </button>
         </div>
       </div>

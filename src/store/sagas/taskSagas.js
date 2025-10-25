@@ -1,28 +1,5 @@
-// Task sagas for handling async operations
-// TODO: Implement saga functions for task management
-
-import { call, put, takeEvery, takeLatest, race, delay, select } from 'redux-saga/effects';
+import { call, put, takeEvery, takeLatest, all, delay, select } from 'redux-saga/effects';
 import { mockApi } from '../../api/mockApi';
-
-// TODO: Import action types and action creators
-// import { FETCH_TASKS_REQUEST, CREATE_TASK_REQUEST, ... } from '../actions/taskActions';
-
-// TODO: Implement saga functions
-// Requirements:
-// 1. Handle fetch tasks with error handling
-// 2. Handle create task with optimistic updates
-// 3. Handle update task with optimistic updates  
-// 4. Handle delete task with optimistic updates
-// 5. Implement retry logic for failed requests
-// 6. Handle race conditions (cancel previous requests)
-
-// TODO: Implement fetchTasksSaga - use call, put, try-catch
-// TODO: Implement createTaskSaga - optimistic updates with rollback
-// TODO: Implement updateTaskSaga - similar to create
-// TODO: Implement deleteTaskSaga - with confirmation handling
-
-// TODO: Export watcher sagas using takeLatest/takeEvery
-
 import { 
   FETCH_TASKS_REQUEST,
   FETCH_TASKS_SUCCESS,
@@ -59,7 +36,7 @@ function* retryApiCall(apiCall, maxRetries = 3) {
       return yield call(apiCall);
     } catch (error) {
       if (i === maxRetries - 1) throw error;
-      yield delay(1000 * (i + 1));
+      yield delay(1000 * (i + 1)); // Exponential backoff
     }
   }
 }
@@ -85,11 +62,15 @@ function* fetchTasksSaga(action) {
   }
 }
 
+// Create task saga with optimistic updates
+// Create task saga with optimistic updates
+// Create task saga with optimistic updates
 function* createTaskSaga(action) {
+    // make a stable tempId and temp key
     const tempId = `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     const tempKey = `temp_${tempId}`;
   
-    const taskData = action.payload;
+    const taskData = action.payload; // your form fields
     const optimisticTask = {
       ...taskData,
       id: tempKey,
@@ -99,26 +80,32 @@ function* createTaskSaga(action) {
     };
   
     try {
+      // 1) optimistic insert
       yield put({ type: CREATE_TASK_OPTIMISTIC, payload: optimisticTask });
   
+      // 2) call API (do NOT send temp fields)
       const response = yield call(retryApiCall, () => mockApi.createTask(taskData));
   
       if (response.success) {
+        // 3) IMPORTANT: pass tempId back so reducer can replace temp_<tempId>
         yield put({ type: CREATE_TASK_SUCCESS, payload: { task: response.data, tempId } });
       } else {
         throw new Error('Failed to create task');
       }
     } catch (error) {
+      // 4) IMPORTANT: use tempId so reducer can remove the optimistic card
       yield put({ type: CREATE_TASK_FAILURE, payload: { tempId, error: error.message } });
       yield put(setError('form', error.message));
     }
   } 
   
 
+// Update task saga with optimistic updates
 function* updateTaskSaga(action) {
   const { taskId, updates } = action.payload;
   
   try {
+    // Get current task state for rollback
     const state = yield select();
     const currentTask = state.entities.tasks.byId[taskId];
     
@@ -126,6 +113,7 @@ function* updateTaskSaga(action) {
       throw new Error('Task not found');
     }
     
+    // Optimistic update
     yield put({ type: UPDATE_TASK_OPTIMISTIC, payload: { id: taskId, updates, originalTask: currentTask } });
     
     // API call
@@ -142,10 +130,12 @@ function* updateTaskSaga(action) {
   }
 }
 
+// Delete task saga with optimistic updates
 function* deleteTaskSaga(action) {
   const taskId = action.payload;
   
   try {
+    // Get current task state for rollback
     const state = yield select();
     const currentTask = state.entities.tasks.byId[taskId];
     
@@ -153,8 +143,10 @@ function* deleteTaskSaga(action) {
       throw new Error('Task not found');
     }
     
+    // Optimistic update
     yield put({ type: DELETE_TASK_OPTIMISTIC, payload: taskId });
     
+    // API call
     const response = yield call(retryApiCall, () => mockApi.deleteTask(taskId));
     
     if (response.success) {
@@ -168,6 +160,7 @@ function* deleteTaskSaga(action) {
   }
 }
 
+// Fetch users saga
 function* fetchUsersSaga() {
   try {
     yield put(setLoading('users', true));
