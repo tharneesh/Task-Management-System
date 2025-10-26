@@ -79,45 +79,73 @@ export const getErrors = createSelector(
 export const getFilteredTasks = createSelector(
   [getAllTasks, getFilters, getOptimistic],
   (tasks, filters, optimistic) => {
-    // Start from tasks already in state (includes any optimistic inserts from the reducer)
     let filtered = tasks.slice();
 
-    // Remove tasks that are optimistically pending delete
+    // NOTE: Do NOT append optimistic creates here; reducer already inserted them.
+    // Remove optimistic deletes if present
     if (optimistic?.pendingDeletes?.length) {
       const toDelete = new Set(optimistic.pendingDeletes);
       filtered = filtered.filter(t => !toDelete.has(t.id));
     }
 
-    // Apply filters
+    // ---- Existing filters (unchanged) ----
     if (filters.projectId) {
-      filtered = filtered.filter(t => t.projectId === filters.projectId);
+      filtered = filtered.filter(task => task.projectId === filters.projectId);
     }
     if (filters.assigneeId) {
-      filtered = filtered.filter(t => t.assigneeId === filters.assigneeId);
+      filtered = filtered.filter(task => task.assigneeId === filters.assigneeId);
     }
     if (filters.status && filters.status !== 'all') {
-      filtered = filtered.filter(t => t.status === filters.status);
+      filtered = filtered.filter(task => task.status === filters.status);
     }
     if (filters.taskType && filters.taskType !== 'all') {
-      filtered = filtered.filter(t => t.taskType === filters.taskType);
+      filtered = filtered.filter(task => task.taskType === filters.taskType);
     }
     if (filters.search) {
       const q = filters.search.toLowerCase();
-      filtered = filtered.filter(t =>
-        (t.title && t.title.toLowerCase().includes(q)) ||
-        (t.description && t.description.toLowerCase().includes(q))
+      filtered = filtered.filter(task =>
+        (task.title && task.title.toLowerCase().includes(q)) ||
+        (task.description && task.description.toLowerCase().includes(q))
       );
     }
 
-    // Safety: de-dupe by id in case anything slipped through
-    const seen = new Set();
-    filtered = filtered.filter(t => {
-      if (seen.has(t.id)) return false;
-      seen.add(t.id);
-      return true;
-    });
+    // ---- Sorting (only if filters already provide sortBy/sortDir) ----
+    const sortBy = filters?.sortBy || null;   // e.g., 'dueDate' | 'priority' | 'status' | 'title' | 'createdAt' ...
+    const sortDir = (filters?.sortDir || 'asc');
+    const dir = sortDir === 'desc' ? -1 : 1;
 
-    return filtered;
+    if (sortBy) {
+      const priorityRank = { High: 3, Medium: 2, Low: 1 };
+      const statusRank   = { Todo: 1, 'In Progress': 2, Done: 3 };
+
+      const getVal = (t) => {
+        switch (sortBy) {
+          case 'priority':   return priorityRank[t.priority] ?? 0;
+          case 'status':     return statusRank[t.status] ?? 0;
+          case 'dueDate':    return t.dueDate ? new Date(t.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+          case 'createdAt':  return t.createdAt ? new Date(t.createdAt).getTime() : 0;
+          case 'title':      return (t.title || '').toLowerCase();
+          default:           return (t[sortBy] ?? '').toString().toLowerCase();
+        }
+      };
+
+      filtered = filtered.slice().sort((a, b) => {
+        const av = getVal(a), bv = getVal(b);
+
+        if (typeof av === 'number' && typeof bv === 'number') {
+          if (av === bv) return String(a.id).localeCompare(String(b.id));
+          return (av - bv) * dir;
+        }
+        const as = String(av), bs = String(bv);
+        const cmp = as.localeCompare(bs, undefined, { numeric: true, sensitivity: 'base' });
+        if (cmp === 0) return String(a.id).localeCompare(String(b.id)); // stable tie-break
+        return cmp * dir;
+      });
+    }
+
+    // Safety de-dupe by id
+    const seen = new Set();
+    return filtered.filter(t => (seen.has(t.id) ? false : (seen.add(t.id), true)));
   }
 );
 
